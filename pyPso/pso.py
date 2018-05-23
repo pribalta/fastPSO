@@ -1,130 +1,388 @@
-from typing import List
+from typing import List, Tuple
 from multiprocessing import Pool
 
 import numpy as np
 
 
 class ObjectiveFunctionBase(object):
-    def __call__(self, *args, **kwargs):
-        pass
+    """
+    Objective function base class to be overriden
+    """
+    def __call__(self, *args, **kwargs) -> float:
+        """
+        Function to be evaluated
+        :param args:
+        :param kwargs:
+        :return:
+        """
+        raise NotImplementedError
 
 
 class PsoParameters(object):
+    """
+    Encapsulates the parameters for PSO velocity updates
+    """
+
     def __init__(self,
                  omega: float = 0.5,
                  phip: float = 0.5,
                  phig: float = 0.5):
+        """
+        Construct a bundle for the PSO parameters
+        :param omega: omega coefficient
+        :param phip: phip coefficient
+        :param phig: phig coefficient
+        """
+        if 1 < omega < 0:
+            raise ValueError("Value for omega should be [0.0, 1.0]")
+
+        if 1 < phip < 0:
+            raise ValueError("Value for phip should be [0.0, 1.0]")
+
+        if 1 < phig < 0:
+            raise ValueError("Value for phig should be [0.0, 1.0]")
+
         self._omega = omega
         self._phip = phip
         self._phig = phig
 
-    def omega(self):
+    def omega(self) -> float:
+        """
+        Get omega
+        :return: float
+        """
         return self._omega
 
-    def phip(self):
+    def phip(self) -> float:
+        """
+        Get phip
+        :return: float
+        """
         return self._phip
 
-    def phig(self):
+    def phig(self) -> float:
+        """
+        Get phig
+        :return: float
+        """
         return self._phig
 
 
 class Particle(object):
-    def __init__(self,
-                 lower_bound: np.ndarray,
-                 upper_bound: np.ndarray,
-                 parameters: PsoParameters):
-        assert lower_bound.dtype == upper_bound.dtype, \
-            "Upper and lower bound must share the same type. Found {} and {}".format(lower_bound.type,
-                                                                                     upper_bound.type)
-        assert np.greater_equal(upper_bound, lower_bound), \
-            "Upper bound values must be greater or equal than lower bound values. Received {} and {}".format(
-                upper_bound,
-                lower_bound)
+    """
+    A particle is the key entity in the PSO algorithm
+    """
 
-        self._lower_bound = lower_bound
-        self._upper_bound = upper_bound
+    def __init__(self,
+                 bounds: Bounds,
+                 parameters: PsoParameters):
+        """
+        Create a particle
+        :param bounds: boundaries for particle position
+        :param parameters: parameters for particle updates
+        """
+        self._bounds = bounds
         self._parameters = parameters
 
-        self._position = [self._initialize_position()]
-        self._velocity = [self._initialize_velocity()]
+        self._position = [self._calculate_initial_position()]
+        self._velocity = [self._calculate_initial_velocity()]
         self._score = []
 
     def position(self) -> np.ndarray:
+        """
+        Get current position
+        :return: np.ndarray
+        """
         return self._position[-1]
 
     def velocity(self) -> np.ndarray:
+        """
+        Get current velocity
+        :return: np.ndarray
+        """
         return self._velocity[-1]
 
     def best_position(self) -> np.ndarray:
+        """
+        Get the best position in the history of a particle
+        :return: np.ndarray
+        """
         return self._position[np.argsort(self._score)[-1]]
 
-    def best_score(self) -> np.ndarray:
+    def best_score(self) -> float:
+        """
+        Get best score in the lifetime of a particle
+        :return: float
+        """
         return self._score[np.argsort(self._score)[-1]]
 
-    def update_velocity(self,
-                        swarm_best: np.ndarray):
-        assert self._score, "Cannot update velocity while scores are empty. Evaluate first."
+    def update(self, swarm_best: np.ndarray) -> None:
+        """
+        Update the velocity and position of a particle
+        :param swarm_best:
+        :return: None
+        """
+        if not self._score:
+            raise ValueError("Cannot update velocity while scores are empty. Evaluate first.")
 
-        rp, rg = self._initialize_random_coefficients()
+        rp, rg = self._initialize_random_coefficients
 
         self._velocity.append(self._parameters.omega() * self.velocity()
-                              + self._parameters.phip() * rp * (self.best_position() - self.position())
-                              + self._parameters.phig() * rg * (swarm_best - self.position()))
-        self._position.append(self._update_position())
+                              + self._parameters.phip() * rp * (self.best_position()
+                                                                - self.position())
+                              + self._parameters.phig() * rg * (swarm_best
+                                                                - self.position()))
+        self._position.append(self._calculate_position())
 
     def update_score(self, score: float) -> None:
+        """
+        Update a particle's score
+        :param score: score obtained by a particle
+        :return: None
+        """
         self._score.append(score)
 
-    def _initialize_position(self) -> np.ndarray:
+    def _calculate_initial_position(self) -> np.ndarray:
+        """
+        Initialize particle's position
+        :return: np.ndarray
+        """
         return np.array([np.random.uniform(low, high)
-                         for low, high in zip(self._lower_bound,
-                                              self._upper_bound)]).astype(self._lower_bound.dtype)
+                         for low, high in zip(self._bounds.lower(),
+                                              self._bounds.upper())]).astype(self._bounds.lower().dtype)
 
-    def _initialize_velocity(self) -> np.ndarray:
+    def _calculate_initial_velocity(self) -> np.ndarray:
+        """
+        Initialize a particle's velocity
+        :return: np.ndarray
+        """
         return np.array([np.random.uniform(-(high - low), high - low)
-                         for low, high in zip(self._lower_bound,
-                                              self._upper_bound)]).astype(self._lower_bound.dtype)
+                         for low, high in zip(self._bounds.lower(),
+                                              self._bounds.upper())]).astype(self._bounds.lower().dtype)
 
-    def _initialize_random_coefficients(self):
+    @property
+    def _initialize_random_coefficients(self) -> Tuple[float, float]:
+        """
+        Initialize the random coefficients for the velocity update
+        :return: Tuple
+        """
         return np.random.uniform(0, 1), np.random.uniform(0, 1)
 
-    def _update_position(self):
+    def _calculate_position(self) -> np.ndarray:
+        """
+        Calculate a particle's position
+        :return: New particle's position
+        """
         new_position = self._position[-1] + self._velocity[-1]
 
         for i in range(new_position.size):
-            if self._lower_bound[i] > new_position[i]:
-                new_position[i] = self._lower_bound[i]
-            elif self._upper_bound < new_position[i]:
-                new_position[i] = self._upper_bound[i]
+            if self._bounds.lower()[i] > new_position[i]:
+                new_position[i] = self._bounds.lower()[i]
+            elif self._bounds.upper() < new_position[i]:
+                new_position[i] = self._bounds.upper()[i]
 
         return new_position
 
+    def last_movement(self) -> float:
+        """
+        Calculate last movement
+        :return: float
+        """
+        return np.linalg.norm(self._position[-2] - self._position[-1])
+
+    def last_improvement(self) -> float:
+        """
+        Calculate last improvement
+        :return: float
+        """
+        return self._score[-2] - self._score[-1]
+
 
 class Executor(object):
+    """
+    Executor handles the sequential or parallel evaluation of a swarm
+    """
+
     def __init__(self,
                  objective_function: ObjectiveFunctionBase,
-                 threads: int,
-                 minimum_improvement: float,
-                 minimum_step: float):
-        assert threads > 0, "Number of threads must be greater than zero"
+                 threads: int):
+        """
+        Create an executor
+        :param objective_function: Objective function to evaluate
+        :param threads: Number of parallel threads for evaluation
+        """
+        if threads <= 0:
+            raise ValueError("Number of threads must be greater than zero."
+                             "Received {}.".format(threads))
+
         self._objective_function = objective_function
         self._threads = threads
-        self._minimum_improvement = minimum_improvement
-        self._minimum_step = minimum_step
 
-    def calculate_scores(self,
-                         particles: List[Particle]):
-        with Pool(min(self._threads, len(particles))) as pool:
-            return pool.starmap(self._objective_function, zip(particles), chunksize=1)
+    def calculate_scores(self, swarm: Swarm) -> None:
+        """
+        Calculate scores for the entire swarm
+        :param swarm: Swarm of particles
+        :return: None
+        """
+        with Pool(min(self._threads, len(swarm))) as pool:
+            scores = pool.starmap(self._objective_function, zip(swarm), chunksize=1)
+
+            swarm.update_scores(scores)
+
+
+class Swarm(object):
+    """
+    Encapsulate and efficiently manage a set of particles
+    """
+
+    def __init__(self,
+                 swarm_size: int,
+                 bounds: Bounds,
+                 parameters: PsoParameters,
+                 minimum_step,
+                 minimum_improvement):
+        """
+        Constructs a swarm
+        :param swarm_size: Number of particles
+        :param bounds: Bounds for the parameter space
+        :param minimum_step: constraint for particle movement
+        :param minimum_improvement: constraint for particle improvement
+        """
+        if swarm_size <= 0:
+            raise ValueError("Swarm size must be greater than zero")
+
+        self._particles = [Particle(bounds, parameters) for _ in range(swarm_size)]
+
+        self._minimum_step = minimum_step
+        self._minimum_improvement = minimum_improvement
+
+    def __iter__(self):
+        return self._particles
+
+    def __len__(self):
+        return len(self._particles)
+
+    def update_scores(self, scores: List[float]) -> None:
+        """
+        Update the scores of all particles
+        :param scores: list of scores
+        :return: None
+        """
+        if len(scores) != len(self._particles):
+            raise ValueError(
+                "Scores must have the same length as the number of particles."
+                "Received {} and {}.".format(len(scores), len(self._particles)))
+
+        for particle, score in zip(self._particles, scores):
+            particle.update_score(score)
 
     def still_improving(self) -> bool:
-        return True
+        """
+        Determie if the swarm is still improving given the minimum improvement constraint
+        :return: bool
+        """
+        improvement_deltas = [particle.last_improvement()
+                              for particle in self._particles]
+
+        for delta in improvement_deltas:
+            if delta > self._minimum_improvement:
+                return True
+
+        return False
 
     def still_moving(self) -> bool:
-        return True
+        """
+        Determie if the swarm is still moving given the minimum step constraint
+        :return: bool
+        """
+        movement_deltas = [particle.last_movement()
+                           for particle in self._particles]
+
+        for delta in movement_deltas:
+            if delta > self._minimum_step:
+                return True
+
+        return False
+
+    def update_velocity(self) -> None:
+        """
+        Update the velocity of all particles in the swarm
+        :return: None
+        """
+        swarm_best_position = self.best_position()
+
+        for particle in self._particles:
+            particle.update(swarm_best_position)
+
+    def best_position(self) -> np.ndarray:
+        """
+        Return the best position in the swarm
+        :return: np.ndarray
+        """
+        best_positions = [particle.best_position() for particle in self._particles]
+        best_scores = [particle.best_score() for particle in self._particles]
+
+        return best_positions[np.argsort(best_scores)[-1]]
+
+    def best_score(self) -> float:
+        """
+        Return the best score in the swarm
+        :return: float
+        """
+        best_scores = [particle.best_score() for particle in self._particles]
+
+        return best_scores[np.argsort(best_scores)[-1]]
+
+
+class Bounds(object):
+    """
+    Encapsulation of PSO bounds. Ensures creation and validation
+    """
+
+    def __init__(self,
+                 lower_bound: np.ndarray,
+                 upper_bound: np.ndarray):
+        """
+        Type encapsulating the bounds of PSO
+        :param lower_bound: maximum values for parameters
+        :param upper_bound: minimum values for parameters
+        """
+        if lower_bound.shape != upper_bound.shape:
+            raise ValueError(
+                "Lower and upper bound must have the same shape."
+                " Received {} and {}".format(lower_bound.shape, upper_bound.shape))
+
+        if lower_bound.dtype != upper_bound.dtype:
+            raise TypeError("Upper and lower bound must share the same type."
+                            " Found {} and {}".format(lower_bound.dtype, upper_bound.dtype))
+
+        if not np.greater_equal(upper_bound, lower_bound):
+            raise ValueError("Upper bound values must be greater or equal than lower bound values."
+                             " Received {} and {}".format(upper_bound, lower_bound))
+
+        self._lower_bound = lower_bound
+        self._upper_bound = upper_bound
+
+    def lower(self) -> np.ndarray:
+        """
+        Return the lower bound
+        :return: lower bound
+        """
+        return self._lower_bound
+
+    def upper(self) -> np.ndarray:
+        """
+        Return the upper bound
+        :return: upper bound
+        """
+        return self._upper_bound
 
 
 class Pso(object):
+    """
+    Pso encapsulates the creation and successive updates of a swarm of particles
+    """
+
     def __init__(self,
                  objective_function: ObjectiveFunctionBase,
                  lower_bound: np.ndarray,
@@ -138,39 +396,53 @@ class Pso(object):
                  minimum_improvement: float = 10e-8,
                  threads: int = 1,
                  verbose: bool = False):
+        """
+        Constructor of a Particle Swarm Optimizer
+        :param objective_function: Objective function reporting the score
+        :param lower_bound: lower bound for parameters
+        :param upper_bound: upper bound for parameters
+        :param swarm_size: number of particles in the swarm
+        :param omega: omega parameter for velocity updates
+        :param phip: phip parameter for velocity updates
+        :param phig: phig parameter for velocity updates
+        :param maximum_iterations: maximum number of iterations for optimization
+        :param minimum_step: minimum particle distance
+        :param minimum_improvement: minimum allowed improvement
+        :param threads: number of execution threads
+        :param verbose: enable to receive information about the progress
+        """
+        if maximum_iterations < 0:
+            raise ValueError("Maximum number of iterations must be greater than zero")
 
-        assert lower_bound.shape == upper_bound.shape, \
-            "Lower and upper bound must have the same shape. Received {} and {}".format(lower_bound.shape,
-                                                                                        upper_bound.shape)
-
-        assert swarm_size > 0, "Swarm size must be greater than zero"
-        assert 1 >= omega >= 0, "Value for omega should be [0.0, 1.0]"
-        assert 1 >= phip >= 0, "Value for phip should be [0.0, 1.0]"
-        assert 1 >= phig >= 0, "Value for phig should be [0.0, 1.0]"
-        assert maximum_iterations > 0, "Maximum number of iterations must be greater than zero"
-
-        self._parameters = PsoParameters(omega, phip, phig)
-        self._particles = [Particle(lower_bound, upper_bound, self._parameters) for _ in range(swarm_size)]
         self._maximum_iterations = maximum_iterations
 
-        self._executor = Executor(objective_function,
-                                  threads,
-                                  minimum_improvement,
-                                  minimum_step)
+        self._swarm = Swarm(swarm_size,
+                            Bounds(lower_bound, upper_bound),
+                            PsoParameters(omega, phip, phig),
+                            minimum_step,
+                            minimum_improvement)
 
-    def run(self):
-        for i in range(self._maximum_iterations):
-            self._executor.calculate_scores(self._particles)
+        self._executor = Executor(objective_function, threads)
 
-            if not self._executor.still_improving() \
-                    or not self._executor.still_moving():
+    def run(self) -> Tuple[np.ndarray, float]:
+        """
+        Run particle swarm optimization
+        :return: (tuple) best position, best score
+        """
+        for _ in range(self._maximum_iterations):
+            self._executor.calculate_scores(self._swarm)
+            self._swarm.update_velocity()
+
+            if not self._swarm.still_improving() \
+                    or not self._swarm.still_moving():
                 break
 
+        return self._swarm.best_position(), self._swarm.best_score()
 
-def main():
-    pso = Pso(None, np.array([1, 1, 1]), np.array([10, 10, 10]), 1)
-    pass
-
-
-if __name__ == '__main__':
-    main()
+    def save_history(self, output_dir: str) -> None:
+        """
+        Save the history of the last run
+        :param output_dir: Output directory
+        :return: None
+        """
+        raise NotImplementedError

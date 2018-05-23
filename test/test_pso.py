@@ -114,14 +114,14 @@ class TestParticle(unittest.TestCase):
         particle = Particle(np.array([2.0]), np.array([5.0]), PsoParameters())
 
         with self.assertRaises(Exception):
-            particle.update_velocity(None)
+            particle.update(None)
 
     def test_that_velocity_can_be_updated_after_calculating_fitness(self):
         particle = Particle(np.array([2.0]), np.array([5.0]), PsoParameters())
 
         particle.update_score(1.0)
 
-        particle.update_velocity(np.array([3.0]))
+        particle.update(np.array([3.0]))
 
     @patch.object(Particle, '_update_position')
     def test_that_updating_velocity_updates_position(self, mock):
@@ -129,7 +129,7 @@ class TestParticle(unittest.TestCase):
 
         particle.update_score(1.0)
 
-        particle.update_velocity(np.array([3.0]))
+        particle.update(np.array([3.0]))
 
         self.assertTrue(mock.called)
 
@@ -140,7 +140,7 @@ class TestParticle(unittest.TestCase):
 
         particle.update_score(1.0)
 
-        particle.update_velocity(np.array([3.0]))
+        particle.update(np.array([3.0]))
 
         self.assertTrue(mock.called)
 
