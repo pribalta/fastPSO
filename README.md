@@ -25,7 +25,7 @@ tbd
 
 ## License
 
-__pyPSO__ is available under **MTI License**
+__pyPSO__ is available under *MIT License*
 
 If you plan on using this software for scientific purposes, please cite our work:
 ```
