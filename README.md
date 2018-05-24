@@ -26,26 +26,26 @@ tbd
 ## License
 
 If you plan on using this software for scientific purposes, please cite our work:
-
->@inproceedings{lorenzo2017particle,
->  title={Particle swarm optimization for hyper-parameter selection in deep neural networks},
->  author={Lorenzo, Pablo Ribaltaet al.},
->  booktitle={Proceedings of the Genetic and Evolutionary Computation Conference},
->  pages={481--488},
->  year={2017},
->  organization={ACM}
->}
-
-and
-
->@inproceedings{lorenzo2017hyper,
->  title={Hyper-parameter selection in deep neural networks using parallel particle swarm optimization},
->  author={Lorenzo, Pablo Ribalta et al.},
->  booktitle={Proceedings of the Genetic and Evolutionary Computation Conference Companion},
->  pages={1864--1871},
->  year={2017},
->  organization={ACM}
->}
+```
+@inproceedings{lorenzo2017particle,
+  title={Particle swarm optimization for hyper-parameter selection in deep neural networks},
+  author={Lorenzo, Pablo Ribaltaet al.},
+  booktitle={Proceedings of the Genetic and Evolutionary Computation Conference},
+  pages={481--488},
+  year={2017},
+  organization={ACM}
+}
+```
+```
+@inproceedings{lorenzo2017hyper,
+  title={Hyper-parameter selection in deep neural networks using parallel particle swarm optimization},
+  author={Lorenzo, Pablo Ribalta et al.},
+  booktitle={Proceedings of the Genetic and Evolutionary Computation Conference Companion},
+  pages={1864--1871},
+  year={2017},
+  organization={ACM}
+}
+```
 
  
 
