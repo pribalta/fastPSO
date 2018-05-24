@@ -80,7 +80,7 @@ class Bounds(object):
     def __init__(self,
                  lower_bound: np.ndarray,
                  upper_bound: np.ndarray,
-                 logger: Logger):
+                 logger: Logger = Logger(verbose=False)):
         """
         Type encapsulating the bounds of PSO
         :param lower_bound: maximum values for parameters
@@ -138,7 +138,7 @@ class PsoParameters(object):
                  omega: float,
                  phip: float,
                  phig: float,
-                 logger: Logger):
+                 logger: Logger = Logger(verbose=False)):
         """
         Construct a bundle for the PSO parameters
         :param omega: omega coefficient
@@ -194,7 +194,7 @@ class Particle(object):
     def __init__(self,
                  bounds: Bounds,
                  parameters: PsoParameters,
-                 logger: Logger):
+                 logger: Logger = Logger(verbose=False)):
         """
         Create a particle
         :param bounds: boundaries for particle position
@@ -358,7 +358,7 @@ class Swarm(object):
                  parameters: PsoParameters,
                  minimum_step: float,
                  minimum_improvement: float,
-                 logger: Logger):
+                 logger: Logger = Logger(verbose=False)):
         """
         Constructs a swarm
         :param swarm_size: Number of particles
@@ -470,7 +470,7 @@ class Executor(object):
     def __init__(self,
                  objective_function: ObjectiveFunctionBase,
                  threads: int,
-                 logger: Logger):
+                 logger: Logger = Logger(verbose=False)):
         """
         Create an executor
         :param objective_function: Objective function to evaluate
