@@ -1,13 +1,18 @@
+"""
+Fast parallel PSO module
+"""
 from typing import List, Tuple
 from multiprocessing import Pool
 
 import numpy as np
 
 
+# pylint: disable=too-few-public-methods
 class ObjectiveFunctionBase(object):
     """
     Objective function base class to be overriden
     """
+
     def __call__(self, *args, **kwargs) -> float:
         """
         Function to be evaluated
@@ -18,28 +23,77 @@ class ObjectiveFunctionBase(object):
         raise NotImplementedError
 
 
+class Bounds(object):
+    """
+    Encapsulation of PSO bounds. Ensures creation and validation
+    """
+
+    def __init__(self,
+                 lower_bound: np.ndarray,
+                 upper_bound: np.ndarray):
+        """
+        Type encapsulating the bounds of PSO
+        :param lower_bound: maximum values for parameters
+        :param upper_bound: minimum values for parameters
+        """
+        if len(lower_bound.shape) > 1 != len(upper_bound.shape) > 1:
+            raise ValueError(
+                "Lower and upper bound must have 1D."
+                " Received {} and {}".format(len(lower_bound.shape), len(upper_bound.shape)))
+
+        if lower_bound.shape != upper_bound.shape:
+            raise ValueError(
+                "Lower and upper bound must have the same shape."
+                " Received {} and {}".format(lower_bound.shape, upper_bound.shape))
+
+        if lower_bound.dtype != upper_bound.dtype:
+            raise TypeError("Upper and lower bound must share the same type."
+                            " Found {} and {}".format(lower_bound.dtype, upper_bound.dtype))
+
+        if not np.all(np.greater_equal(upper_bound, lower_bound)):
+            raise ValueError("Upper bound values must be greater or equal than lower bound values."
+                             " Received {} and {}".format(upper_bound, lower_bound))
+
+        self._lower_bound = lower_bound
+        self._upper_bound = upper_bound
+
+    def lower(self) -> np.ndarray:
+        """
+        Return the lower bound
+        :return: lower bound
+        """
+        return self._lower_bound
+
+    def upper(self) -> np.ndarray:
+        """
+        Return the upper bound
+        :return: upper bound
+        """
+        return self._upper_bound
+
+
 class PsoParameters(object):
     """
     Encapsulates the parameters for PSO velocity updates
     """
 
     def __init__(self,
-                 omega: float = 0.5,
-                 phip: float = 0.5,
-                 phig: float = 0.5):
+                 omega: float,
+                 phip: float,
+                 phig: float):
         """
         Construct a bundle for the PSO parameters
         :param omega: omega coefficient
         :param phip: phip coefficient
         :param phig: phig coefficient
         """
-        if 1 < omega < 0:
+        if omega > 1 or omega < 0:
             raise ValueError("Value for omega should be [0.0, 1.0]")
 
-        if 1 < phip < 0:
+        if  phip > 1 or phip < 0:
             raise ValueError("Value for phip should be [0.0, 1.0]")
 
-        if 1 < phig < 0:
+        if  phig > 1 or phig < 0:
             raise ValueError("Value for phig should be [0.0, 1.0]")
 
         self._omega = omega
@@ -107,6 +161,10 @@ class Particle(object):
         Get the best position in the history of a particle
         :return: np.ndarray
         """
+        if len(self._position) != len(self._score):
+            raise ValueError("Amount of positions should be the same as amount of scores."
+                             "Received {} and {}".format(len(self._position), len(self._score)))
+
         return self._position[np.argsort(self._score)[-1]]
 
     def best_score(self) -> float:
@@ -114,6 +172,9 @@ class Particle(object):
         Get best score in the lifetime of a particle
         :return: float
         """
+        if not self._score:
+            raise ValueError("Cannot update velocity while scores are empty. Evaluate first.")
+
         return self._score[np.argsort(self._score)[-1]]
 
     def update(self, swarm_best: np.ndarray) -> None:
@@ -125,6 +186,7 @@ class Particle(object):
         if not self._score:
             raise ValueError("Cannot update velocity while scores are empty. Evaluate first.")
 
+        # pylint: disable = invalid-name
         rp, rg = self._initialize_random_coefficients
 
         self._velocity.append(self._parameters.omega() * self.velocity()
@@ -149,7 +211,8 @@ class Particle(object):
         """
         return np.array([np.random.uniform(low, high)
                          for low, high in zip(self._bounds.lower(),
-                                              self._bounds.upper())]).astype(self._bounds.lower().dtype)
+                                              self._bounds.upper())]) \
+            .astype(self._bounds.lower().dtype)
 
     def _calculate_initial_velocity(self) -> np.ndarray:
         """
@@ -158,7 +221,8 @@ class Particle(object):
         """
         return np.array([np.random.uniform(-(high - low), high - low)
                          for low, high in zip(self._bounds.lower(),
-                                              self._bounds.upper())]).astype(self._bounds.lower().dtype)
+                                              self._bounds.upper())]) \
+            .astype(self._bounds.lower().dtype)
 
     @property
     def _initialize_random_coefficients(self) -> Tuple[float, float]:
@@ -195,39 +259,13 @@ class Particle(object):
         Calculate last improvement
         :return: float
         """
-        return self._score[-2] - self._score[-1]
+        if not self._score:
+            raise ValueError("Unable to calculate improvement without scores")
 
+        if len(self._score) == 1:
+            return float("inf")
 
-class Executor(object):
-    """
-    Executor handles the sequential or parallel evaluation of a swarm
-    """
-
-    def __init__(self,
-                 objective_function: ObjectiveFunctionBase,
-                 threads: int):
-        """
-        Create an executor
-        :param objective_function: Objective function to evaluate
-        :param threads: Number of parallel threads for evaluation
-        """
-        if threads <= 0:
-            raise ValueError("Number of threads must be greater than zero."
-                             "Received {}.".format(threads))
-
-        self._objective_function = objective_function
-        self._threads = threads
-
-    def calculate_scores(self, swarm: Swarm) -> None:
-        """
-        Calculate scores for the entire swarm
-        :param swarm: Swarm of particles
-        :return: None
-        """
-        with Pool(min(self._threads, len(swarm))) as pool:
-            scores = pool.starmap(self._objective_function, zip(swarm), chunksize=1)
-
-            swarm.update_scores(scores)
+        return self._score[-1] - self._score[-2]
 
 
 class Swarm(object):
@@ -235,6 +273,7 @@ class Swarm(object):
     Encapsulate and efficiently manage a set of particles
     """
 
+    #pylint: disable=too-many-arguments
     def __init__(self,
                  swarm_size: int,
                  bounds: Bounds,
@@ -257,7 +296,7 @@ class Swarm(object):
         self._minimum_improvement = minimum_improvement
 
     def __iter__(self):
-        return self._particles
+        return self._particles.__iter__()
 
     def __len__(self):
         return len(self._particles)
@@ -334,48 +373,36 @@ class Swarm(object):
         return best_scores[np.argsort(best_scores)[-1]]
 
 
-class Bounds(object):
+class Executor(object):
     """
-    Encapsulation of PSO bounds. Ensures creation and validation
+    Executor handles the sequential or parallel evaluation of a swarm
     """
 
     def __init__(self,
-                 lower_bound: np.ndarray,
-                 upper_bound: np.ndarray):
+                 objective_function: ObjectiveFunctionBase,
+                 threads: int):
         """
-        Type encapsulating the bounds of PSO
-        :param lower_bound: maximum values for parameters
-        :param upper_bound: minimum values for parameters
+        Create an executor
+        :param objective_function: Objective function to evaluate
+        :param threads: Number of parallel threads for evaluation
         """
-        if lower_bound.shape != upper_bound.shape:
-            raise ValueError(
-                "Lower and upper bound must have the same shape."
-                " Received {} and {}".format(lower_bound.shape, upper_bound.shape))
+        if threads <= 0:
+            raise ValueError("Number of threads must be greater than zero."
+                             "Received {}.".format(threads))
 
-        if lower_bound.dtype != upper_bound.dtype:
-            raise TypeError("Upper and lower bound must share the same type."
-                            " Found {} and {}".format(lower_bound.dtype, upper_bound.dtype))
+        self._objective_function = objective_function
+        self._threads = threads
 
-        if not np.greater_equal(upper_bound, lower_bound):
-            raise ValueError("Upper bound values must be greater or equal than lower bound values."
-                             " Received {} and {}".format(upper_bound, lower_bound))
+    def calculate_scores(self, swarm: Swarm) -> None:
+        """
+        Calculate scores for the entire swarm
+        :param swarm: Swarm of particles
+        :return: None
+        """
+        with Pool(min(self._threads, len(swarm))) as pool:
+            scores = pool.starmap(self._objective_function, zip(swarm), chunksize=1)
 
-        self._lower_bound = lower_bound
-        self._upper_bound = upper_bound
-
-    def lower(self) -> np.ndarray:
-        """
-        Return the lower bound
-        :return: lower bound
-        """
-        return self._lower_bound
-
-    def upper(self) -> np.ndarray:
-        """
-        Return the upper bound
-        :return: upper bound
-        """
-        return self._upper_bound
+            swarm.update_scores(scores)
 
 
 class Pso(object):
@@ -383,6 +410,7 @@ class Pso(object):
     Pso encapsulates the creation and successive updates of a swarm of particles
     """
 
+    #pylint: disable=too-many-arguments
     def __init__(self,
                  objective_function: ObjectiveFunctionBase,
                  lower_bound: np.ndarray,
@@ -411,7 +439,7 @@ class Pso(object):
         :param threads: number of execution threads
         :param verbose: enable to receive information about the progress
         """
-        if maximum_iterations < 0:
+        if maximum_iterations <= 0:
             raise ValueError("Maximum number of iterations must be greater than zero")
 
         self._maximum_iterations = maximum_iterations
