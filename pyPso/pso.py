@@ -111,6 +111,9 @@ class Bounds(object):
         self._lower_bound = lower_bound
         self._upper_bound = upper_bound
 
+        self._logger.log("Initial upper bound: {}".format(upper_bound))
+        self._logger.log("Initial lower bound: {}".format(lower_bound))
+
     def lower(self) -> np.ndarray:
         """
         Return the lower bound
@@ -157,6 +160,10 @@ class PsoParameters(object):
         self._phip = phip
         self._phig = phig
 
+        self._logger.log("Initial omega parameter: {}".format(omega))
+        self._logger.log("Initial phip parameter: {}".format(phip))
+        self._logger.log("Initial phig parameter: {}".format(phig))
+
     def omega(self) -> float:
         """
         Get omega
@@ -201,6 +208,9 @@ class Particle(object):
         self._position = [self._calculate_initial_position()]
         self._velocity = [self._calculate_initial_velocity()]
         self._score = []
+
+        self._logger.log("Created particle:\n\tPosition: {}\n\tVelocity: {}".format(self.position(),
+                                                                                    self.velocity()))
 
     def position(self) -> np.ndarray:
         """
@@ -259,6 +269,9 @@ class Particle(object):
                                                                 - self.position()))
         self._position.append(self._calculate_position())
 
+        self._logger.log("Updated particle:\n\tPosition: {}\n\tVelocity: {}".format(self.position(),
+                                                                                    self.velocity()))
+
     def update_score(self, score: float) -> None:
         """
         Update a particle's score
@@ -266,6 +279,7 @@ class Particle(object):
         :return: None
         """
         self._score.append(score)
+        self._logger.log("Updated particle:\n\tScore: {}".format(score))
 
     def _calculate_initial_position(self) -> np.ndarray:
         """
@@ -363,6 +377,10 @@ class Swarm(object):
         self._minimum_step = minimum_step
         self._minimum_improvement = minimum_improvement
 
+        self._logger.log("Created swarm:\n\tsize: {}\n\tMinimum step: {} \n\tMinimum improvement: {}".format(swarm_size,
+                                                                                                             minimum_step,
+                                                                                                             minimum_improvement))
+
     def __iter__(self):
         return self._particles.__iter__()
 
@@ -382,6 +400,9 @@ class Swarm(object):
 
         for particle, score in zip(self._particles, scores):
             particle.update_score(score)
+
+        # todo
+        self._logger.log("Updating scores: {}".format(scores))
 
     def still_improving(self) -> bool:
         """
