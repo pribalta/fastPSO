@@ -2,7 +2,7 @@
 
 [![build status](
   http://img.shields.io/travis/pribalta/repo/master.svg?style=flat)](
- https://travis-ci.org/pribalta/pyPso)
+ https://travis-ci.org/pribalta/pyPSO)
 
 Fast parallel Particle Swarm Optimization package for Python
 
