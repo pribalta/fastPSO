@@ -7,29 +7,31 @@ __pyPSO__ is an open source software library for Particle Swarm Optimization bui
   
 Its flexible architecture enables you to define complex objective functions, and to perform optimization in a __serial__ or __parallel__ setting. In addition, it offers detailed insights on the optimization process, helping practitioners profile their results.
 
-## Getting Started
+## Installation
 
-tbd
+__pip__ __package__
 
 ```
-Examples
+pip install pypso
 ```
 
-### Prerequisites
+### Requirements
 
-tbd
+  * numpy
 
-### Installing
+## Getting started
 
 tbd
 
 ## License
 
+__pyPSO__ is available under **MTI License**
+
 If you plan on using this software for scientific purposes, please cite our work:
 ```
 @inproceedings{lorenzo2017particle,
   title={Particle swarm optimization for hyper-parameter selection in deep neural networks},
-  author={Lorenzo, Pablo Ribaltaet al.},
+  author={Lorenzo, Pablo Ribalta et al.},
   booktitle={Proceedings of the Genetic and Evolutionary Computation Conference},
   pages={481--488},
   year={2017},
