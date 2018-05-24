@@ -1,4 +1,9 @@
 # pyPSO
+
+[![build status](
+  http://img.shields.io/travis/pribalta/repo/master.svg?style=flat)](
+ https://travis-ci.org/pribalta/repo)
+
 Fast parallel Particle Swarm Optimization package for Python
 
 __pyPSO__ is an open source software library for Particle Swarm Optimization built with two goals in mind:
