@@ -6,10 +6,10 @@ setup(
     author='Pablo Ribalta Lorenzo',
     author_email='pribalta@ieee.org',
     packages=['pyPso', 'pyPso.test'],
-    url='http://pypi.python.org/pypi/TowelStuff/',
+    url='https://github.com/pribalta/pyPSO',
     license='LICENSE.txt',
-    description='Fast PSO library for Python with support for CPU and GPU multithreading.',
-    long_description=open('README.txt').read(),
+    description='Fast parallel PSO library for Python with support for CPU and GPU multithreading.',
+    long_description=open('README.md').read(),
     install_requires=[
         "numpy >= 1.12.1"
     ],
