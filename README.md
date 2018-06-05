@@ -1,10 +1,10 @@
-# pyPSO
+# fastPSO
 
-[![Build Status](https://travis-ci.org/pribalta/pyPSO.svg?branch=master)](https://travis-ci.org/pribalta/pyPSO)
+[![Build Status](https://travis-ci.org/pribalta/fastPSO.svg?branch=master)](https://travis-ci.org/pribalta/fastPSO)
 
 Fast parallel Particle Swarm Optimization package for Python
 
-__pyPSO__ is an open source software library for Particle Swarm Optimization built with two goals in mind:
+__fastPSO__ is an open source software library for Particle Swarm Optimization built with two goals in mind:
   * Speed
   * Parallelism
   
@@ -15,7 +15,7 @@ Its flexible architecture enables you to define complex objective functions, and
 __pip__ __package__
 
 ```
-pip install pypso
+pip install fastpso
 ```
 
 ### Requirements
@@ -28,7 +28,7 @@ tbd
 
 ## License
 
-__pyPSO__ is available under *MIT License*
+__fastPSO__ is available under *MIT License*
 
 If you plan on using this software for scientific purposes, please cite our work:
 ```
