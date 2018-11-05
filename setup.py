@@ -1,8 +1,8 @@
-from distutils.core import setup
+import setuptools
 
-setup(
-    name='fastPso',
-    version='0.9',
+setuptools.setup(
+    name='fastPSO',
+    version='0.0.1',
     author='Pablo Ribalta Lorenzo',
     author_email='pribalta@ieee.org',
     packages=['fastPSO', 'test'],
@@ -10,7 +10,9 @@ setup(
     license='LICENSE.txt',
     description='Fast parallel PSO library for Python with support for CPU and GPU multithreading.',
     long_description=open('README.md').read(),
-    install_requires=[
-        "numpy >= 1.12.1"
-    ],
+    classifiers=[
+        "Programming Language :: Python :: 3",
+        "License :: OSI Approved :: MIT License",
+        "Operating System :: OS Independent",
+    ]
 )
