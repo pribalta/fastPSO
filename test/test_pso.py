@@ -3,8 +3,8 @@ from unittest.mock import patch
 
 import numpy as np
 
-from pyPso.pso import PsoParameters, Particle, Bounds, Swarm
-from pyPso.pso import Pso, ObjectiveFunctionBase, Executor
+from fastPSO.pso import PsoParameters, Particle, Bounds, Swarm
+from fastPSO.pso import Pso, ObjectiveFunctionBase, Executor
 
 
 class DummyObjectiveFunction(ObjectiveFunctionBase):
