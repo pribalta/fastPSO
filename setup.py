@@ -5,7 +5,7 @@ setup(
     version='0.9',
     author='Pablo Ribalta Lorenzo',
     author_email='pribalta@ieee.org',
-    packages=['fastPso', 'test'],
+    packages=['fastPSO', 'test'],
     url='https://github.com/pribalta/fastPSO',
     license='LICENSE.txt',
     description='Fast parallel PSO library for Python with support for CPU and GPU multithreading.',
