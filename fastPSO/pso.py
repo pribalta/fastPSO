@@ -2,9 +2,10 @@
 Fast parallel PSO module
 """
 from typing import List, Tuple
-from multiprocessing import Pool
+from multiprocessing.pool import ThreadPool
 import logging
 import datetime
+import time
 import os
 import pickle
 
@@ -50,10 +51,8 @@ class Logger(object):
     def timestamp(self) -> Tuple:
         return self._timestamp.year,\
                self._timestamp.month,\
-               self._timestamp.day,\
-               self._timestamp.hour,\
-               self._timestamp.min,\
-               self._timestamp.second
+               self._timestamp.day, \
+               int(time.time())
 
 
 # pylint: disable=too-few-public-methods
@@ -319,16 +318,19 @@ class Particle(object):
         for i in range(new_position.size):
             if self._bounds.lower()[i] > new_position[i]:
                 new_position[i] = self._bounds.lower()[i]
-            elif self._bounds.upper() < new_position[i]:
+            elif self._bounds.upper()[i] < new_position[i]:
                 new_position[i] = self._bounds.upper()[i]
 
-        return new_position
+        return new_position.astype(np.int32)
 
     def last_movement(self) -> float:
         """
         Calculate last movement
         :return: float
         """
+        if len(self._position) < 2:
+            return float("inf")
+
         return np.linalg.norm(self._position[-2] - self._position[-1])
 
     def last_improvement(self) -> float:
@@ -336,11 +338,7 @@ class Particle(object):
         Calculate last improvement
         :return: float
         """
-        if not self._score:
-            self._logger.log("Cannot calculate improvement while scores are empty. Evaluate first.",
-                             error=True)
-
-        if len(self._score) == 1:
+        if len(self._score) < 2:
             return float("inf")
 
         return self._score[-1] - self._score[-2]
@@ -492,7 +490,7 @@ class Executor(object):
         :param swarm: Swarm of particles
         :return: None
         """
-        with Pool(min(self._threads, len(swarm))) as pool:
+        with ThreadPool(min(self._threads, len(swarm))) as pool:
             scores = pool.starmap(self._objective_function, zip(swarm), chunksize=1)
 
             swarm.update_scores(scores)
@@ -554,12 +552,14 @@ class Pso(object):
         :return: (tuple) best position, best score
         """
         for _ in range(self._maximum_iterations):
+
             self._executor.calculate_scores(self._swarm)
-            self._swarm.update_velocity()
 
             if not self._swarm.still_improving() \
                     or not self._swarm.still_moving():
                 break
+
+            self._swarm.update_velocity()
 
         return self._swarm.best_position(), self._swarm.best_score()
 
@@ -569,11 +569,9 @@ class Pso(object):
         :param output_dir: Output directory
         :return: None
         """
-        if os.path.isdir(output_dir):
-            os.makedirs(os.path.join(output_dir, "{}{}{}_{}{}{}".format(*self._logger.timestamp())))
+        experiment_dir = "{0}{1}{2:02}_{3}".format(*self._logger.timestamp())
 
-            pickle.dump(self._swarm,
-                        os.path.join(output_dir, "{}{}{}_{}{}{}".format(*self._logger.timestamp()), 'swarm.pkl'))
-        else:
-            self._logger.log("Output path is not a directory: {}".format(output_dir),
-                             error=True)
+        os.makedirs(os.path.join(output_dir, experiment_dir))
+
+        pickle.dump(self._swarm, open(os.path.join(output_dir, experiment_dir, 'swarm.pkl'), 'wb'))
+
