@@ -307,13 +307,24 @@ class TestParticle(unittest.TestCase):
 
         self.assertEqual(p.last_improvement(), float("inf"))
 
-    def test_that_lastimprovement_fails_if_no_scores(self):
+    def test_that_lastimprovement_is_inf_if_not_enough_scores(self):
         p = Particle(Bounds(np.array([1]), np.array([2])), PsoParameters(0.15, 0.15, 0.15))
 
-        p._score = []
+        self.assertEqual(p.last_improvement(), float('inf'))
 
-        with self.assertRaises(ValueError):
-            p.last_improvement()
+    def test_that_lastimprovement_is_inf_if_not_enough_scores2(self):
+        p = Particle(Bounds(np.array([1]), np.array([2])), PsoParameters(0.15, 0.15, 0.15))
+
+        p._score = [0]
+
+        self.assertEqual(p.last_improvement(), float('inf'))
+
+    def test_that_lastimprovement_is_calculated(self):
+        p = Particle(Bounds(np.array([1]), np.array([2])), PsoParameters(0.15, 0.15, 0.15))
+
+        p._score = [0, 5]
+
+        self.assertEqual(p.last_improvement(), 5)
 
 
 class TestSwarm(unittest.TestCase):
@@ -445,7 +456,6 @@ class TestSwarm(unittest.TestCase):
         self.assertTrue(mock_update.called)
         self.assertEqual(mock_update.call_count, 10)
 
-
     @patch.object(Particle, 'best_position')
     @patch.object(Particle, 'best_score')
     def test_best_position(self, mock_score, mock_position):
@@ -471,6 +481,7 @@ class TestSwarm(unittest.TestCase):
         mock_score.side_effect = list(reversed(range(10)))
 
         self.assertEqual(s.best_score(), 9)
+
 
 class TestExecutor(unittest.TestCase):
 
@@ -504,6 +515,7 @@ class TestExecutor(unittest.TestCase):
 
         self.assertTrue(mock_size.called)
         self.assertEqual(mock_update.call_count, 1)
+
 
 class TestPso(unittest.TestCase):
 
