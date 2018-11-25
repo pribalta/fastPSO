@@ -2,7 +2,7 @@ import setuptools
 
 setuptools.setup(
     name='fastPSO',
-    version='0.0.1',
+    version='0.0.2',
     author='Pablo Ribalta Lorenzo',
     author_email='pribalta@ieee.org',
     packages=['fastPSO', 'test'],
