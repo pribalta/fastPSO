@@ -230,11 +230,6 @@ class Particle(object):
         Get the best position in the history of a particle
         :return: np.ndarray
         """
-        if len(self._position) != len(self._score):
-            self._logger.log("Amount of positions should be the same as amount of scores."
-                             "Received {} and {}".format(len(self._position), len(self._score)),
-                             error=True)
-
         return self._position[np.argsort(self._score)[-1]]
 
     def best_score(self) -> float:
