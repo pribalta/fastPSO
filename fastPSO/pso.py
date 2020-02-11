@@ -13,7 +13,7 @@ import numpy as np
 
 
 class Logger(object):
-    def __init__(self, verbose = True):
+    def __init__(self, verbose=True):
         """
         Initialize a logger object if verbosity enabled
         :param verbose: Should log or not
@@ -22,12 +22,14 @@ class Logger(object):
         self._timestamp = datetime.datetime.now()
 
         if verbose:
-            formatter = logging.Formatter("%(asctime)s [%(threadName)-12.12s] [%(levelname)-5.5s]  %(message)s")
+            formatter = logging.Formatter(
+                "%(asctime)s [%(threadName)-12.12s] [%(levelname)-5.5s]  %(message)s"
+            )
             self._root_logger = logging.getLogger()
 
-
             filename = "{}{}{}_{}{}{}_pso.log".format(*self.timestamp())
-            file_handler = logging.FileHandler("{0}/{1}.log".format(os.path.realpath(__file__), filename))
+            file_handler = logging.FileHandler("{0}/{1}.log".format(
+                os.path.realpath(__file__), filename))
             file_handler.setFormatter(formatter)
             self._root_logger.addHandler(file_handler)
 
@@ -43,7 +45,8 @@ class Logger(object):
         :return: None
         """
         if self._root_logger:
-            self._root_logger.log(logging.CRITICAL if error else logging.INFO, message)
+            self._root_logger.log(logging.CRITICAL
+                                  if error else logging.INFO, message)
 
         if error:
             raise ValueError(message)
@@ -88,24 +91,31 @@ class Bounds(object):
         self._logger = logger
 
         if len(lower_bound.shape) > 1 != len(upper_bound.shape) > 1:
-            self._logger.log("Lower and upper bound must have 1D."
-                             " Received {} and {}".format(len(lower_bound.shape), len(upper_bound.shape)),
-                             error=True)
+            self._logger.log(
+                "Lower and upper bound must have 1D."
+                " Received {} and {}".format(
+                    len(lower_bound.shape), len(upper_bound.shape)),
+                error=True)
 
         if lower_bound.shape != upper_bound.shape:
-            self._logger.log("Lower and upper bound must have the same shape."
-                             " Received {} and {}".format(lower_bound.shape, upper_bound.shape),
-                             error=True)
+            self._logger.log(
+                "Lower and upper bound must have the same shape."
+                " Received {} and {}".format(lower_bound.shape,
+                                             upper_bound.shape),
+                error=True)
 
         if lower_bound.dtype != upper_bound.dtype:
-            self._logger.log("Upper and lower bound must share the same type."
-                             " Found {} and {}".format(lower_bound.dtype, upper_bound.dtype),
-                             error=True)
+            self._logger.log(
+                "Upper and lower bound must share the same type."
+                " Found {} and {}".format(lower_bound.dtype,
+                                          upper_bound.dtype),
+                error=True)
 
         if not np.all(np.greater_equal(upper_bound, lower_bound)):
-            self._logger.log("Upper bound values must be greater or equal than lower bound values."
-                             " Received {} and {}".format(upper_bound, lower_bound),
-                             error=True)
+            self._logger.log(
+                "Upper bound values must be greater or equal than lower bound values."
+                " Received {} and {}".format(upper_bound, lower_bound),
+                error=True)
 
         self._lower_bound = lower_bound
         self._upper_bound = upper_bound
@@ -147,12 +157,13 @@ class PsoParameters(object):
         self._logger = logger
 
         if omega > 1 or omega < 0:
-            self._logger.log("Value for omega should be [0.0, 1.0]", error=True)
+            self._logger.log(
+                "Value for omega should be [0.0, 1.0]", error=True)
 
-        if  phip > 1 or phip < 0:
+        if phip > 1 or phip < 0:
             self._logger.log("Value for phip should be [0.0, 1.0]", error=True)
 
-        if  phig > 1 or phig < 0:
+        if phig > 1 or phig < 0:
             self._logger.log("Value for phig should be [0.0, 1.0]", error=True)
 
         self._omega = omega
@@ -193,7 +204,8 @@ class Particle(object):
     def __init__(self,
                  bounds: Bounds,
                  parameters: PsoParameters,
-                 logger: Logger = Logger(verbose=False)):
+                 logger: Logger = Logger(verbose=False),
+                 zero_initial_velocity=False):
         """
         Create a particle
         :param bounds: boundaries for particle position
@@ -205,11 +217,14 @@ class Particle(object):
         self._parameters = parameters
 
         self._position = [self._calculate_initial_position()]
-        self._velocity = [self._calculate_initial_velocity()]
+        self._velocity = [
+            self._calculate_initial_velocity(zero_initial_velocity)
+        ]
         self._score = []
 
-        self._logger.log("Created particle:\n\tPosition: {}\n\tVelocity: {}".format(self.position(),
-                                                                                    self.velocity()))
+        self._logger.log(
+            "Created particle:\n\tPosition: {}\n\tVelocity: {}".format(
+                self.position(), self.velocity()))
 
     def position(self) -> np.ndarray:
         """
@@ -238,8 +253,9 @@ class Particle(object):
         :return: float
         """
         if not self._score:
-            self._logger.log("Cannot update velocity while scores are empty. Evaluate first.",
-                             error=True)
+            self._logger.log(
+                "Cannot update velocity while scores are empty. Evaluate first.",
+                error=True)
 
         return self._score[np.argsort(self._score)[-1]]
 
@@ -250,21 +266,22 @@ class Particle(object):
         :return: None
         """
         if not self._score:
-            self._logger.log("Cannot update while scores are empty. Evaluate first.",
-                             error=True)
+            self._logger.log(
+                "Cannot update while scores are empty. Evaluate first.",
+                error=True)
 
         # pylint: disable = invalid-name
         rp, rg = self._initialize_random_coefficients
 
-        self._velocity.append(self._parameters.omega() * self.velocity()
-                              + self._parameters.phip() * rp * (self.best_position()
-                                                                - self.position())
-                              + self._parameters.phig() * rg * (swarm_best
-                                                                - self.position()))
+        self._velocity.append(self._parameters.omega() * self.velocity(
+        ) + self._parameters.phip() * rp * (
+            self.best_position() - self.position()
+        ) + self._parameters.phig() * rg * (swarm_best - self.position()))
         self._position.append(self._calculate_position())
 
-        self._logger.log("Updated particle:\n\tPosition: {}\n\tVelocity: {}".format(self.position(),
-                                                                                    self.velocity()))
+        self._logger.log(
+            "Updated particle:\n\tPosition: {}\n\tVelocity: {}".format(
+                self.position(), self.velocity()))
 
     def update_score(self, score: float) -> None:
         """
@@ -285,15 +302,21 @@ class Particle(object):
                                               self._bounds.upper())]) \
             .astype(self._bounds.lower().dtype)
 
-    def _calculate_initial_velocity(self) -> np.ndarray:
+    def _calculate_initial_velocity(self,
+                                    zero_initial_velocity=False) -> np.ndarray:
         """
         Initialize a particle's velocity
         :return: np.ndarray
         """
-        return np.array([np.random.uniform(-(high - low), high - low)
-                         for low, high in zip(self._bounds.lower(),
-                                              self._bounds.upper())]) \
-            .astype(self._bounds.lower().dtype)
+        if not zero_initial_velocity:
+            return np.array([np.random.uniform(-(high - low), high - low)
+                             for low, high in zip(self._bounds.lower(),
+                                                  self._bounds.upper())]) \
+                .astype(self._bounds.lower().dtype)
+        else:
+            return np.array(
+                [0 for i in range(len(self._bounds.lower()))]).astype(
+                    self._bounds.lower().dtype)
 
     @property
     def _initialize_random_coefficients(self) -> Tuple[float, float]:
@@ -351,6 +374,7 @@ class Swarm(object):
                  parameters: PsoParameters,
                  minimum_step: float,
                  minimum_improvement: float,
+                 zero_initial_velocity=False,
                  logger: Logger = Logger(verbose=False)):
         """
         Constructs a swarm
@@ -362,17 +386,20 @@ class Swarm(object):
         self._logger = logger
 
         if swarm_size <= 0:
-            self._logger.log("Swarm size must be greater than zero",
-                             error=True)
+            self._logger.log(
+                "Swarm size must be greater than zero", error=True)
 
-        self._particles = [Particle(bounds, parameters, logger) for _ in range(swarm_size)]
+        self._particles = [
+            Particle(bounds, parameters, logger, zero_initial_velocity)
+            for _ in range(swarm_size)
+        ]
 
         self._minimum_step = minimum_step
         self._minimum_improvement = minimum_improvement
 
-        self._logger.log("Created swarm:\n\tsize: {}\n\tMinimum step: {} \n\tMinimum improvement: {}".format(swarm_size,
-                                                                                                             minimum_step,
-                                                                                                             minimum_improvement))
+        self._logger.log(
+            "Created swarm:\n\tsize: {}\n\tMinimum step: {} \n\tMinimum improvement: {}".
+            format(swarm_size, minimum_step, minimum_improvement))
 
     def __iter__(self):
         return self._particles.__iter__()
@@ -387,9 +414,11 @@ class Swarm(object):
         :return: None
         """
         if len(scores) != len(self._particles):
-            self._logger.log("Scores must have the same length as the number of particles."
-                             "Received {} and {}.".format(len(scores), len(self._particles)),
-                             error=True)
+            self._logger.log(
+                "Scores must have the same length as the number of particles."
+                "Received {} and {}.".format(
+                    len(scores), len(self._particles)),
+                error=True)
 
         for particle, score in zip(self._particles, scores):
             particle.update_score(score)
@@ -402,8 +431,9 @@ class Swarm(object):
         Determie if the swarm is still improving given the minimum improvement constraint
         :return: bool
         """
-        improvement_deltas = [particle.last_improvement()
-                              for particle in self._particles]
+        improvement_deltas = [
+            particle.last_improvement() for particle in self._particles
+        ]
 
         for delta in improvement_deltas:
             if delta > self._minimum_improvement:
@@ -416,8 +446,9 @@ class Swarm(object):
         Determie if the swarm is still moving given the minimum step constraint
         :return: bool
         """
-        movement_deltas = [particle.last_movement()
-                           for particle in self._particles]
+        movement_deltas = [
+            particle.last_movement() for particle in self._particles
+        ]
 
         for delta in movement_deltas:
             if delta > self._minimum_step:
@@ -440,7 +471,9 @@ class Swarm(object):
         Return the best position in the swarm
         :return: np.ndarray
         """
-        best_positions = [particle.best_position() for particle in self._particles]
+        best_positions = [
+            particle.best_position() for particle in self._particles
+        ]
         best_scores = [particle.best_score() for particle in self._particles]
 
         return best_positions[np.argsort(best_scores)[-1]]
@@ -472,9 +505,10 @@ class Executor(object):
         self._logger = logger
 
         if threads <= 0:
-            self._logger.log("Number of threads must be greater than zero."
-                             "Received {}.".format(threads),
-                             error=True)
+            self._logger.log(
+                "Number of threads must be greater than zero."
+                "Received {}.".format(threads),
+                error=True)
 
         self._objective_function = objective_function
         self._threads = threads
@@ -486,7 +520,8 @@ class Executor(object):
         :return: None
         """
         with ThreadPool(min(self._threads, len(swarm))) as pool:
-            scores = pool.starmap(self._objective_function, zip(swarm), chunksize=1)
+            scores = pool.starmap(
+                self._objective_function, zip(swarm), chunksize=1)
 
             swarm.update_scores(scores)
 
@@ -508,6 +543,7 @@ class Pso(object):
                  maximum_iterations: int = 100,
                  minimum_step: float = 10e-8,
                  minimum_improvement: float = 10e-8,
+                 zero_initial_velocity=False,
                  threads: int = 1,
                  verbose: bool = False):
         """
@@ -528,16 +564,17 @@ class Pso(object):
         self._logger = Logger(verbose)
 
         if maximum_iterations <= 0:
-            self._logger.log("Maximum number of iterations must be greater than zero", error=True)
+            self._logger.log(
+                "Maximum number of iterations must be greater than zero",
+                error=True)
 
         self._maximum_iterations = maximum_iterations
 
         self._swarm = Swarm(swarm_size,
-                            Bounds(lower_bound, upper_bound,  self._logger),
-                            PsoParameters(omega, phip, phig,  self._logger),
-                            minimum_step,
-                            minimum_improvement,
-                            self._logger)
+                            Bounds(lower_bound, upper_bound, self._logger),
+                            PsoParameters(omega, phip, phig, self._logger),
+                            minimum_step, minimum_improvement,
+                            zero_initial_velocity, self._logger)
 
         self._executor = Executor(objective_function, threads, self._logger)
 
@@ -568,5 +605,7 @@ class Pso(object):
 
         os.makedirs(os.path.join(output_dir, experiment_dir))
 
-        pickle.dump(self._swarm, open(os.path.join(output_dir, experiment_dir, 'swarm.pkl'), 'wb'))
-
+        pickle.dump(self._swarm,
+                    open(
+                        os.path.join(output_dir, experiment_dir, 'swarm.pkl'),
+                        'wb'))
