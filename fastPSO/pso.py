@@ -11,6 +11,21 @@ import pickle
 
 import numpy as np
 
+from enum import Enum
+
+from skopt.learning import ExtraTreesRegressor
+from skopt import Optimizer
+
+
+class InitialVelocity(Enum):
+    NONE = 0
+    RANDOM = 1
+
+
+class VelocityUpdate(Enum):
+    NORMAL = 0
+    GAUSSIAN_PROCESS = 1
+
 
 class Logger(object):
     def __init__(self, verbose=True):
@@ -52,8 +67,8 @@ class Logger(object):
             raise ValueError(message)
 
     def timestamp(self) -> Tuple:
-        return self._timestamp.year,\
-               self._timestamp.month,\
+        return self._timestamp.year, \
+               self._timestamp.month, \
                self._timestamp.day, \
                int(time.time())
 
@@ -205,7 +220,8 @@ class Particle(object):
                  bounds: Bounds,
                  parameters: PsoParameters,
                  logger: Logger = Logger(verbose=False),
-                 zero_initial_velocity=False):
+                 initial_velocity=InitialVelocity.NORMAL,
+                 secondary_optimizer=None):
         """
         Create a particle
         :param bounds: boundaries for particle position
@@ -218,13 +234,16 @@ class Particle(object):
 
         self._position = [self._calculate_initial_position()]
         self._velocity = [
-            self._calculate_initial_velocity(zero_initial_velocity)
+            self._calculate_initial_velocity(initial_velocity)
         ]
         self._score = []
 
         self._logger.log(
             "Created particle:\n\tPosition: {}\n\tVelocity: {}".format(
                 self.position(), self.velocity()))
+
+        self._secondary_optimizer = secondary_optimizer
+        self._swarm_best = []
 
     def position(self) -> np.ndarray:
         """
@@ -270,18 +289,35 @@ class Particle(object):
                 "Cannot update while scores are empty. Evaluate first.",
                 error=True)
 
+        self._swarm_best.append(swarm_best)
+
         # pylint: disable = invalid-name
         rp, rg = self._initialize_random_coefficients
 
-        self._velocity.append(self._parameters.omega() * self.velocity(
-        ) + self._parameters.phip() * rp * (
-            self.best_position() - self.position()
-        ) + self._parameters.phig() * rg * (swarm_best - self.position()))
+        if not self._found_new_best() and self._secondary_optimizer is not None:
+            fake_best = self._secondary_optimizer.ask()
+            self._velocity.append(self._parameters.omega() * self.velocity(
+            ) + self._parameters.phip() * rp * (
+                                          fake_best - self.position()
+                                  ) + self._parameters.phig() * rg * (swarm_best - self.position()))
+        else:
+            self._velocity.append(self._parameters.omega() * self.velocity(
+            ) + self._parameters.phip() * rp * (
+                                          self.best_position() - self.position()
+                                  ) + self._parameters.phig() * rg * (swarm_best - self.position()))
+
         self._position.append(self._calculate_position())
 
         self._logger.log(
             "Updated particle:\n\tPosition: {}\n\tVelocity: {}".format(
                 self.position(), self.velocity()))
+
+    def _found_new_best(self):
+        if len(self._swarm_best) < 2:
+            return False
+
+        assert self._swarm_best[-1] >= self._swarm_best[-2]
+        return self._swarm_best[-1] != self._swarm_best[-2]
 
     def update_score(self, score: float) -> None:
         """
@@ -303,20 +339,20 @@ class Particle(object):
             .astype(self._bounds.lower().dtype)
 
     def _calculate_initial_velocity(self,
-                                    zero_initial_velocity=False) -> np.ndarray:
+                                    initial_velocity=InitialVelocity.NORMAL) -> np.ndarray:
         """
         Initialize a particle's velocity
         :return: np.ndarray
         """
-        if not zero_initial_velocity:
+        if initial_velocity == InitialVelocity.NORMAL:
             return np.array([np.random.uniform(-(high - low), high - low)
                              for low, high in zip(self._bounds.lower(),
                                                   self._bounds.upper())]) \
                 .astype(self._bounds.lower().dtype)
-        else:
+        elif initial_velocity == InitialVelocity.NONE:
             return np.array(
                 [0 for i in range(len(self._bounds.lower()))]).astype(
-                    self._bounds.lower().dtype)
+                self._bounds.lower().dtype)
 
     @property
     def _initialize_random_coefficients(self) -> Tuple[float, float]:
@@ -374,7 +410,8 @@ class Swarm(object):
                  parameters: PsoParameters,
                  minimum_step: float,
                  minimum_improvement: float,
-                 zero_initial_velocity=False,
+                 initial_velocity=InitialVelocity.NORMAL,
+                 velocity_update=VelocityUpdate.NORMAL,
                  logger: Logger = Logger(verbose=False)):
         """
         Constructs a swarm
@@ -389,8 +426,13 @@ class Swarm(object):
             self._logger.log(
                 "Swarm size must be greater than zero", error=True)
 
+        if velocity_update == VelocityUpdate.GAUSSIAN_PROCESS:
+            self._gp = Optimizer([(l, u) for l, u in zip(bounds.lower(), bounds.upper())], acq_func="gp_hedge", acq_optimizer="sampling")
+        else:
+            self._gp = None
+
         self._particles = [
-            Particle(bounds, parameters, logger, zero_initial_velocity)
+            Particle(bounds, parameters, logger, initial_velocity, self._gp)
             for _ in range(swarm_size)
         ]
 
@@ -399,7 +441,8 @@ class Swarm(object):
 
         self._logger.log(
             "Created swarm:\n\tsize: {}\n\tMinimum step: {} \n\tMinimum improvement: {}".
-            format(swarm_size, minimum_step, minimum_improvement))
+                format(swarm_size, minimum_step, minimum_improvement))
+
 
     def __iter__(self):
         return self._particles.__iter__()
@@ -423,7 +466,11 @@ class Swarm(object):
         for particle, score in zip(self._particles, scores):
             particle.update_score(score)
 
-        # todo
+        if self._gp is not None:
+            for particle, score in zip(self._particles, scores):
+                position = particle.position()
+                self._gp.tell(position, score)
+
         self._logger.log("Updating scores: {}".format(scores))
 
     def still_improving(self) -> bool:
@@ -543,9 +590,10 @@ class Pso(object):
                  maximum_iterations: int = 100,
                  minimum_step: float = 10e-8,
                  minimum_improvement: float = 10e-8,
-                 zero_initial_velocity=False,
                  threads: int = 1,
-                 verbose: bool = False):
+                 verbose: bool = False,
+                 initial_velocity=InitialVelocity.NORMAL,
+                 velocity_update=VelocityUpdate.NORMAL):
         """
         Constructor of a Particle Swarm Optimizer
         :param objective_function: Objective function reporting the score
@@ -574,7 +622,7 @@ class Pso(object):
                             Bounds(lower_bound, upper_bound, self._logger),
                             PsoParameters(omega, phip, phig, self._logger),
                             minimum_step, minimum_improvement,
-                            zero_initial_velocity, self._logger)
+                            initial_velocity, velocity_update, self._logger)
 
         self._executor = Executor(objective_function, threads, self._logger)
 
