@@ -19,7 +19,7 @@ from skopt import Optimizer
 
 class InitialVelocity(Enum):
     NONE = 0
-    RANDOM = 1
+    NORMAL = 1
 
 
 class VelocityUpdate(Enum):
