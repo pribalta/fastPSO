@@ -295,16 +295,12 @@ class Particle(object):
         rp, rg = self._initialize_random_coefficients
 
         if not self._found_new_best() and self._secondary_optimizer is not None:
-            fake_best = self._secondary_optimizer.ask()
-            self._velocity.append(self._parameters.omega() * self.velocity(
-            ) + self._parameters.phip() * rp * (
-                                          fake_best - self.position()
-                                  ) + self._parameters.phig() * rg * (swarm_best - self.position()))
-        else:
-            self._velocity.append(self._parameters.omega() * self.velocity(
-            ) + self._parameters.phip() * rp * (
-                                          self.best_position() - self.position()
-                                  ) + self._parameters.phig() * rg * (swarm_best - self.position()))
+            swarm_best = self._secondary_optimizer.ask()
+
+        self._velocity.append(self._parameters.omega() * self.velocity(
+        ) + self._parameters.phip() * rp * (
+                                      self.best_position() - self.position()
+                              ) + self._parameters.phig() * rg * (swarm_best - self.position()))
 
         self._position.append(self._calculate_position())
 
@@ -344,15 +340,15 @@ class Particle(object):
         Initialize a particle's velocity
         :return: np.ndarray
         """
-        if initial_velocity == InitialVelocity.NORMAL:
-            return np.array([np.random.uniform(-(high - low), high - low)
-                             for low, high in zip(self._bounds.lower(),
-                                                  self._bounds.upper())]) \
-                .astype(self._bounds.lower().dtype)
-        elif initial_velocity == InitialVelocity.NONE:
-            return np.array(
-                [0 for i in range(len(self._bounds.lower()))]).astype(
-                self._bounds.lower().dtype)
+        v_0 =  np.array([np.random.uniform(-(high - low), high - low)
+                         for low, high in zip(self._bounds.lower(),
+                                              self._bounds.upper())]) \
+            .astype(self._bounds.lower().dtype)
+
+        if initial_velocity == InitialVelocity.NONE:
+            return np.zeros_like(v_0)
+
+        return v_0
 
     @property
     def _initialize_random_coefficients(self) -> Tuple[float, float]:
@@ -467,9 +463,8 @@ class Swarm(object):
             particle.update_score(score)
 
         if self._gp is not None:
-            for particle, score in zip(self._particles, scores):
-                position = particle.position()
-                self._gp.tell(position, score)
+            positions = [p.position() for p in self._particles]
+            self._gp.tell(positions, scores)
 
         self._logger.log("Updating scores: {}".format(scores))
 
