@@ -295,7 +295,8 @@ class Particle(object):
         rp, rg = self._initialize_random_coefficients
 
         if not self._found_new_best() and self._secondary_optimizer is not None:
-            swarm_best = self._secondary_optimizer.ask()
+            swarm_best = np.array(self._secondary_optimizer.ask())
+            print('GAUSSIAN OPTIMIZER suggesting {}'.format(swarm_best))
 
         self._velocity.append(self._parameters.omega() * self.velocity(
         ) + self._parameters.phip() * rp * (
@@ -340,9 +341,9 @@ class Particle(object):
         Initialize a particle's velocity
         :return: np.ndarray
         """
-        v_0 =  np.array([np.random.uniform(-(high - low), high - low)
-                         for low, high in zip(self._bounds.lower(),
-                                              self._bounds.upper())]) \
+        v_0 = np.array([np.random.uniform(-(high - low), high - low)
+                        for low, high in zip(self._bounds.lower(),
+                                             self._bounds.upper())]) \
             .astype(self._bounds.lower().dtype)
 
         if initial_velocity == InitialVelocity.NONE:
@@ -423,7 +424,8 @@ class Swarm(object):
                 "Swarm size must be greater than zero", error=True)
 
         if velocity_update == VelocityUpdate.GAUSSIAN_PROCESS:
-            self._gp = Optimizer([(l, u) for l, u in zip(bounds.lower(), bounds.upper())], acq_func="gp_hedge", acq_optimizer="sampling")
+            self._gp = Optimizer([(l, u) for l, u in zip(bounds.lower(), bounds.upper())], acq_func="gp_hedge",
+                                 acq_optimizer="sampling")
         else:
             self._gp = None
 
@@ -438,7 +440,6 @@ class Swarm(object):
         self._logger.log(
             "Created swarm:\n\tsize: {}\n\tMinimum step: {} \n\tMinimum improvement: {}".
                 format(swarm_size, minimum_step, minimum_improvement))
-
 
     def __iter__(self):
         return self._particles.__iter__()
@@ -463,7 +464,7 @@ class Swarm(object):
             particle.update_score(score)
 
         if self._gp is not None:
-            positions = [p.position() for p in self._particles]
+            positions = [p.position().tolist() for p in self._particles]
             self._gp.tell(positions, scores)
 
         self._logger.log("Updating scores: {}".format(scores))
