@@ -221,6 +221,7 @@ class Particle(object):
                  parameters: PsoParameters,
                  logger: Logger = Logger(verbose=False),
                  initial_velocity=InitialVelocity.NORMAL,
+                 momentum=0.0,
                  secondary_optimizer=None):
         """
         Create a particle
@@ -228,6 +229,7 @@ class Particle(object):
         :param parameters: parameters for particle updates
         """
         self._logger = logger
+        self._momentum = momentum
 
         self._bounds = bounds
         self._parameters = parameters
@@ -294,14 +296,18 @@ class Particle(object):
         # pylint: disable = invalid-name
         rp, rg = self._initialize_random_coefficients
 
-        if not self._found_new_best() and self._secondary_optimizer is not None:
-            swarm_best = np.array(self._secondary_optimizer.ask())
-            print('GAUSSIAN OPTIMIZER suggesting {}'.format(swarm_best))
+        if self._secondary_optimizer is not None:
+            if not self._found_new_best():
+                swarm_best = np.array(self._secondary_optimizer.ask())
+                print('GAUSSIAN OPTIMIZER suggesting {}'.format(swarm_best))
 
         self._velocity.append(self._parameters.omega() * self.velocity(
         ) + self._parameters.phip() * rp * (
                                       self.best_position() - self.position()
                               ) + self._parameters.phig() * rg * (swarm_best - self.position()))
+
+        if len(self._velocity) > 1:
+            self._velocity[-1] += (self._momentum * self._velocity[-2])
 
         self._position.append(self._calculate_position())
 
@@ -310,8 +316,8 @@ class Particle(object):
                 self.position(), self.velocity()))
 
     def _found_new_best(self):
-        if len(self._swarm_best) < 2:
-            return False
+        if len(self._score) < 2:
+            return True
 
         assert self._swarm_best[-1] >= self._swarm_best[-2]
         return self._swarm_best[-1] != self._swarm_best[-2]
@@ -409,6 +415,7 @@ class Swarm(object):
                  minimum_improvement: float,
                  initial_velocity=InitialVelocity.NORMAL,
                  velocity_update=VelocityUpdate.NORMAL,
+                 momentum=0.0,
                  logger: Logger = Logger(verbose=False)):
         """
         Constructs a swarm
@@ -430,7 +437,7 @@ class Swarm(object):
             self._gp = None
 
         self._particles = [
-            Particle(bounds, parameters, logger, initial_velocity, self._gp)
+            Particle(bounds, parameters, logger, initial_velocity, momentum, self._gp)
             for _ in range(swarm_size)
         ]
 
@@ -589,7 +596,8 @@ class Pso(object):
                  threads: int = 1,
                  verbose: bool = False,
                  initial_velocity=InitialVelocity.NORMAL,
-                 velocity_update=VelocityUpdate.NORMAL):
+                 velocity_update=VelocityUpdate.NORMAL,
+                 momentum=0.0):
         """
         Constructor of a Particle Swarm Optimizer
         :param objective_function: Objective function reporting the score
@@ -618,7 +626,7 @@ class Pso(object):
                             Bounds(lower_bound, upper_bound, self._logger),
                             PsoParameters(omega, phip, phig, self._logger),
                             minimum_step, minimum_improvement,
-                            initial_velocity, velocity_update, self._logger)
+                            initial_velocity, velocity_update, momentum, self._logger)
 
         self._executor = Executor(objective_function, threads, self._logger)
 
