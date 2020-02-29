@@ -25,6 +25,7 @@ class InitialVelocity(Enum):
 class VelocityUpdate(Enum):
     NORMAL = 0
     GAUSSIAN_PROCESS = 1
+    GAUSSIAN_SUBSTITUTION = 1
 
 
 class Logger(object):
@@ -222,6 +223,7 @@ class Particle(object):
                  logger: Logger = Logger(verbose=False),
                  initial_velocity=InitialVelocity.NORMAL,
                  momentum=0.0,
+                 velocity_update=VelocityUpdate.NORMAL,
                  secondary_optimizer=None):
         """
         Create a particle
@@ -230,6 +232,7 @@ class Particle(object):
         """
         self._logger = logger
         self._momentum = momentum
+        self._velocity_update = velocity_update
 
         self._bounds = bounds
         self._parameters = parameters
@@ -280,7 +283,7 @@ class Particle(object):
 
         return self._score[np.argsort(self._score)[-1]]
 
-    def update(self, swarm_best: np.ndarray) -> None:
+    def update(self, swarm_best: np.ndarray, is_worst=False) -> None:
         """
         Update the velocity and position of a particle
         :param swarm_best:
@@ -306,10 +309,14 @@ class Particle(object):
                                       self.best_position() - self.position()
                               ) + self._parameters.phig() * rg * (swarm_best - self.position()))
 
+        self._position.append(self._calculate_position())
+
         if len(self._velocity) > 1:
             self._velocity[-1] += (self._momentum * self._velocity[-2])
 
-        self._position.append(self._calculate_position())
+        if self._velocity_update == VelocityUpdate.GAUSSIAN_SUBSTITUTION and is_worst:
+            self._position[-1] = swarm_best
+            self._velocity[-1] = self._velocity[-1] * 0.0
 
         self._logger.log(
             "Updated particle:\n\tPosition: {}\n\tVelocity: {}".format(
@@ -430,14 +437,14 @@ class Swarm(object):
             self._logger.log(
                 "Swarm size must be greater than zero", error=True)
 
-        if velocity_update == VelocityUpdate.GAUSSIAN_PROCESS:
+        if velocity_update == VelocityUpdate.GAUSSIAN_PROCESS or velocity_update == VelocityUpdate.GAUSSIAN_SUBSTITUTION:
             self._gp = Optimizer([(l, u) for l, u in zip(bounds.lower(), bounds.upper())], acq_func="gp_hedge",
                                  acq_optimizer="sampling")
         else:
             self._gp = None
 
         self._particles = [
-            Particle(bounds, parameters, logger, initial_velocity, momentum, self._gp)
+            Particle(bounds, parameters, logger, initial_velocity, momentum, velocity_update, self._gp)
             for _ in range(swarm_size)
         ]
 
@@ -513,8 +520,10 @@ class Swarm(object):
         """
         swarm_best_position = self.best_position()
 
-        for particle in self._particles:
-            particle.update(swarm_best_position)
+        scores = [p._score[-1] for p in self._particles]
+
+        for idx, particle in enumerate(self._particles):
+            particle.update(swarm_best_position, idx == scores.index(min(scores)))
 
     def best_position(self) -> np.ndarray:
         """
