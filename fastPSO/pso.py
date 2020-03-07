@@ -248,7 +248,7 @@ class Particle(object):
                 self.position(), self.velocity()))
 
         self._secondary_optimizer = secondary_optimizer
-        self._swarm_best = []
+        self._swarm_best_score = []
 
     def position(self) -> np.ndarray:
         """
@@ -283,7 +283,7 @@ class Particle(object):
 
         return self._score[np.argsort(self._score)[-1]]
 
-    def update(self, swarm_best: np.ndarray, is_worst=False) -> None:
+    def update(self, swarm_best: np.ndarray, is_worst=False, best_score=-1) -> None:
         """
         Update the velocity and position of a particle
         :param swarm_best:
@@ -294,12 +294,12 @@ class Particle(object):
                 "Cannot update while scores are empty. Evaluate first.",
                 error=True)
 
-        self._swarm_best.append(swarm_best)
+        self._swarm_best_score.append(best_score)
 
         # pylint: disable = invalid-name
         rp, rg = self._initialize_random_coefficients
 
-        if self._secondary_optimizer is not None:
+        if self._secondary_optimizer is not None and is_worst:
             if not self._found_new_best():
                 swarm_best = np.array(self._secondary_optimizer.ask())
                 print('GAUSSIAN OPTIMIZER suggesting {}'.format(swarm_best))
@@ -326,8 +326,8 @@ class Particle(object):
         if len(self._score) < 2:
             return True
 
-        assert self._swarm_best[-1] >= self._swarm_best[-2]
-        return self._swarm_best[-1] != self._swarm_best[-2]
+        assert self._swarm_best_score[-1] >= self._swarm_best_score[-2]
+        return self._swarm_best_score[-1] != self._swarm_best_score[-2]
 
     def update_score(self, score: float) -> None:
         """
@@ -523,7 +523,7 @@ class Swarm(object):
         scores = [p._score[-1] for p in self._particles]
 
         for idx, particle in enumerate(self._particles):
-            particle.update(swarm_best_position, idx == scores.index(min(scores)))
+            particle.update(swarm_best_position, idx == scores.index(min(scores)), self.best_score())
 
     def best_position(self) -> np.ndarray:
         """
