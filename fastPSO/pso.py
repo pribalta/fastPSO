@@ -25,7 +25,7 @@ class InitialVelocity(Enum):
 class VelocityUpdate(Enum):
     NORMAL = 0
     GAUSSIAN_PROCESS = 1
-    GAUSSIAN_SUBSTITUTION = 1
+    GAUSSIAN_SUBSTITUTION = 2
 
 
 class Logger(object):
@@ -309,6 +309,7 @@ class Particle(object):
                                       self.best_position() - self.position()
                               ) + self._parameters.phig() * rg * (swarm_best - self.position()))
 
+
         self._position.append(self._calculate_position())
 
         if len(self._velocity) > 1:
@@ -318,7 +319,7 @@ class Particle(object):
             self._position[-1] = swarm_best
             self._velocity[-1] = self._velocity[-1] * 0.0
 
-        self._logger.log(
+        print(
             "Updated particle:\n\tPosition: {}\n\tVelocity: {}".format(
                 self.position(), self.velocity()))
 
@@ -648,9 +649,9 @@ class Pso(object):
 
             self._executor.calculate_scores(self._swarm)
 
-            if not self._swarm.still_improving() \
-                    or not self._swarm.still_moving():
-                break
+            # if not self._swarm.still_improving() \
+            #         or not self._swarm.still_moving():
+            #     break
 
             self._swarm.update_velocity()
 
