@@ -1,7 +1,5 @@
 # fastPSO
 
-[![Build Status](https://travis-ci.org/pribalta/fastPSO.svg?branch=master)](https://travis-ci.org/pribalta/fastPSO)
-
 Fast parallel Particle Swarm Optimization package for Python
 
 __fastPSO__ is an open source software library for Particle Swarm Optimization built with two goals in mind:
